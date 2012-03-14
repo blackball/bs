@@ -3,3 +3,7 @@ Bgooth
 Pixel-wise background subtraction method.
 
 blackball
+
+A more well designed API will be in version 2
+=====
+I name it as bs (background substraction).
