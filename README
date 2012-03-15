@@ -7,3 +7,10 @@ blackball
 A more well designed API will be in version 2
 =====
 I name it as bs (background substraction).
+
+Update:
+@date 3/15/2012
+  -add new C version in bs.h and bs.c, testing example in bs_example.cpp
+@TODO: 
+  -clean-up
+  -optimization

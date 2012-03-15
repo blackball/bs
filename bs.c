@@ -68,14 +68,14 @@ static int _bs_createRandTable(bs_t *t) {
   unsigned int i;
   bs_t p = *t;
   
-  if ( !p->randTable ) {
+  if ( p->randTable ) {
 #ifdef BS_DEBUG
     fprintf(stderr, "Random table was already created !?\n");
 #endif
     return 0;
   }
 
-  p->randTable = (int*)malloc(p->randTableLen);
+  p->randTable = (unsigned int*)malloc(p->randTableLen * sizeof(unsigned int));
   if (!p->randTable) {
 #ifdef BS_DEBUG
     fprintf(stderr, "Error: Out of memory!\n");
@@ -86,18 +86,20 @@ static int _bs_createRandTable(bs_t *t) {
   /* randomly fill the table */
   srand((unsigned int)time(NULL));
   for (i = 0; i < p->randTableLen; ++i)
-    p->randTable[i] =rand();
+    p->randTable[i] = rand();
 
-  p->randTable_curr = &(p->randTable);
-  p->randTable_end  = &(p->randTable[p->randTable - 1]);
+  p->randTable_curr = (p->randTable);
+  p->randTable_end  = (p->randTable + p->randTableLen);
 
   return 0;
 }
 
-static unsigned int _bs_getNextRandomNumber(bs_t *t) {
-  unsigned int curr = *((*t)->randTable_curr);  
-  if ( curr == (*t)->randTable_end )
-    (*t)->randTable_curr = (*t)->randTable;
+static unsigned int _bs_getNextRandomNumber(bs_t t) {
+  unsigned int curr = *((t)->randTable_curr);
+
+  (t)->randTable_curr ++;
+  if ( (t)->randTable_curr == (t)->randTable_end )
+    (t)->randTable_curr = (t)->randTable;
   
   return curr;
 }
@@ -106,7 +108,7 @@ static unsigned int _bs_getNextRandomNumber(bs_t *t) {
 int bs_create(bs_t *t) {
   bs_t p = NULL;
   /*  allocate memory, initialize them */
-  *t = (bs_t)calloc( sizeof(_bs_t) , 1);
+  *t = (bs_t)calloc( sizeof(struct _bs_t) , 1);
   
   if (!(*t)) {
 #ifdef BS_DEBUG
@@ -137,12 +139,12 @@ int bs_create(bs_t *t) {
   return 0;
 }
 
-static int _bs_getRandomNeighbour_8U_C1R(bs_t p, unsigned char *pix, unsigned char *imageData, int w, int h, int x, int y) {
+static int _bs_getRandomNeighbour_8U_C1R(bs_t p, unsigned char *grayVal, unsigned char *imageData, int w, int h, int x, int y) {
   /* neighbour index */
   unsigned int nIdx;
   unsigned int stride;
   stride = w;
-  nIdx =  = x + stride * y;
+  nIdx = x + w * y;
 
   /*
     5 6 7
@@ -152,58 +154,58 @@ static int _bs_getRandomNeighbour_8U_C1R(bs_t p, unsigned char *pix, unsigned ch
   switch(_bs_getNextRandomNumber(p) % 8) {
     case 0: 
       if (x < w - 1) 
-        nIdx+=1;
+        nIdx += 1;
       break;
     case 1: 
       if (x < w - 1) 
-        nIdx+=1;
+        nIdx += 1;
       if (y < h - 1) 
-        nIdx+=stride;
+        nIdx += stride;
       break;
     case 2: 
       if (y < h - 1) 
-        nIdx+=stride;
+        nIdx += stride;
       break;
     case 3: 
       if (x > 0) 
-        nIdx-=1;
+        nIdx -= 1;
       if (y < h - 1) 
-        nIdx+=stride;
+        nIdx += stride;
       break;
     case 4: 
       if (x > 0) 
-        nIdx-=1;
+        nIdx -= 1;
       break;
     case 5: 
       if (x > 0) 
-        nIdx-=1;
+        nIdx -= 1;
       if (y > 0) 
-        nIdx-=stride;
+        nIdx -= stride;
       break;
     case 6: 
       if (y > 0) 
-        nIdx-=stride;
+        nIdx -= stride;
       break;
     case 7: 
       if (x < w - 1) 
-        nIdx+=1;
+        nIdx += 1;
       if (y > 0) 
-        nIdx-=stride;
+        nIdx -= stride;
       break;
     default:
       ;
   }
   
-  *pix = imageData[nIdx];
+  *grayVal = imageData[nIdx];
   return 0;
 }
 
-static int _bs_getRandomNeighbour_8U_C3R(bs_t p, unsigned char *pix, unsigned char *imageData, int w, int h, int x, int y) {
+static int _bs_getRandomNeighbour_8U_C3R(bs_t p, unsigned char *v0, unsigned char *v1, unsigned char *v2, unsigned char *imageData, int w, int h, int x, int y) {
   /* neighbour index */
   unsigned int nIdx;
   unsigned int stride;
   stride = w * 3;
-  nIdx  = x + stride * y;
+  nIdx  = 3*(x + w * y);
 
   /*
     5 6 7
@@ -213,11 +215,11 @@ static int _bs_getRandomNeighbour_8U_C3R(bs_t p, unsigned char *pix, unsigned ch
   switch(_bs_getNextRandomNumber(p) % 8) {
     case 0: 
       if (x < w - 1) 
-        nIdx+=1;
+        nIdx+=3;
       break;
     case 1: 
       if (x < w - 1) 
-        nIdx+=1;
+        nIdx+=3;
       if (y < h - 1) 
         nIdx+=stride;
       break;
@@ -227,7 +229,7 @@ static int _bs_getRandomNeighbour_8U_C3R(bs_t p, unsigned char *pix, unsigned ch
       break;
     case 3: 
       if (x > 0) 
-        nIdx-=1;
+        nIdx-=3;
       if (y < h - 1) 
         nIdx+=stride;
       break;
@@ -237,7 +239,7 @@ static int _bs_getRandomNeighbour_8U_C3R(bs_t p, unsigned char *pix, unsigned ch
       break;
     case 5: 
       if (x > 0) 
-        nIdx-=1;
+        nIdx-=3;
       if (y > 0) 
         nIdx-=stride;
       break;
@@ -247,7 +249,7 @@ static int _bs_getRandomNeighbour_8U_C3R(bs_t p, unsigned char *pix, unsigned ch
       break;
     case 7: 
       if (x < w - 1) 
-        nIdx+=1;
+        nIdx+=3;
       if (y > 0) 
         nIdx-=stride;
       break;
@@ -255,15 +257,16 @@ static int _bs_getRandomNeighbour_8U_C3R(bs_t p, unsigned char *pix, unsigned ch
       ;
   }
   
-  *pix++ = imageData[nIdx + 0];
-  *pix++ = imageData[nIdx + 1];
-  *pix++ = imageData[nIdx + 2];
+  *v0 = imageData[nIdx + 0];
+  *v1 = imageData[nIdx + 1];
+  *v2 = imageData[nIdx + 2];
   
   return 0;
 }
 
 static int _bs_initModel_8U_C1R(bs_t p, unsigned char *imageData, int w, int h) {
-  int i, j, k, step;
+  int x, y, k, step;
+  unsigned char grayVal;
   unsigned char *pModel, *pData = imageData;
   
   if (!p->bgModel) {
@@ -275,12 +278,15 @@ static int _bs_initModel_8U_C1R(bs_t p, unsigned char *imageData, int w, int h) 
 
   step = p->sampleNum; 
   pModel = p->bgModel;
-  for (i = 0; i < h; ++i) {
-    for (j = 0; j < width; ++j) {
+
+  for (y = 0; y < h; ++y) {
+    for (x = 0; x < w; ++x) {
       /* the first sample is the pixel itself */
-      *pModel++ = pData[j + i * h];
-      for (k = 1; k < step; ++j)
-        _bs_getRandomNeighbour_8U_C1R(p, pModel, pData, w, h, j, i);
+      *pModel++ = pData[x + y * w];
+      for (k = 1; k < step; ++k) {
+        _bs_getRandomNeighbour_8U_C1R(p, &grayVal, pData, w, h, x, y);
+        *pModel++ = grayVal;
+      }
     }
   }
 
@@ -289,7 +295,8 @@ static int _bs_initModel_8U_C1R(bs_t p, unsigned char *imageData, int w, int h) 
 
 
 static int _bs_initModel_8U_C3R(bs_t p, unsigned char *imageData, int w, int h) {
-  int i, j, k, step;
+  int i, j, k, step, pos;
+  unsigned char v0,v1,v2;
   unsigned char *pModel, *pData = imageData;
   
   if (!p->bgModel) {
@@ -302,11 +309,18 @@ static int _bs_initModel_8U_C3R(bs_t p, unsigned char *imageData, int w, int h) 
   step = p->sampleNum;
   pModel = p->bgModel;
   for (i = 0; i < h; ++i) {
-    for (j = 0; j < width; ++j) {
+    for (j = 0; j < w; ++j) {
       /* the first sample is the pixel itself */
-      *pModel++ = pData[j + i * h];
-      for (k = 1; k < step; ++j)
-        _bs_getRandomNeighbour_8U_C3R(p, pModel, pData, w, h, j, i);
+      pos = (j + i * w) * 3;
+      *pModel++ = pData[pos + 0];
+      *pModel++ = pData[pos + 1];
+      *pModel++ = pData[pos + 1];
+      for (k = 1; k < step; ++k) {
+        _bs_getRandomNeighbour_8U_C3R(p, &v0, &v1, &v2, pData, w, h, j, i);
+        *pModel++ = v0;
+        *pModel++ = v1;
+        *pModel++ = v2;
+      }
     }
   }
 
@@ -323,7 +337,7 @@ int bs_initModel(bs_t *t, unsigned char *imageData,
 
   if ( w < 1 || h < 1) return -1; /* invalid size */
 
-  if (!_bs_createRandTable( t )) {
+  if (_bs_createRandTable( t )) {
 #ifdef BS_DEBUG
     fprintf(stderr, "Error:Create Random table failed!\n");
 #endif
@@ -343,7 +357,7 @@ int bs_initModel(bs_t *t, unsigned char *imageData,
 
   free ( p->bgModel ); /* could re-initialize */
   p->bgModel = (unsigned char*)calloc(p->sampleNum * nChannels * w * h , sizeof(unsigned char));
-  if (!b->bgModel) {
+  if (!p->bgModel) {
 #ifdef BS_DEBUG
     fprintf(stderr, "Error:Out of memory!\n");
 #endif
@@ -352,7 +366,7 @@ int bs_initModel(bs_t *t, unsigned char *imageData,
 
   free ( p->segMap );
   p->segMap = (unsigned char*)calloc( w * h, sizeof(unsigned char));
-  if (!b->segMap) {
+  if (!p->segMap) {
 #ifdef BS_DEBUG
     fprintf(stderr, "Error:Out of memory!\n");
 #endif
@@ -376,7 +390,7 @@ int bs_initModel(bs_t *t, unsigned char *imageData,
 
 static BOOL _bs_closeEnough_8U_C1R(unsigned char *pval, unsigned char *pixModel, int len, int matchTh, int matchNum) {
   int k, count;
-  unsigned char delta;
+  unsigned int delta;
 
   count = 0;
   for (k = 0; k < len; ++k) {
@@ -390,15 +404,21 @@ static BOOL _bs_closeEnough_8U_C1R(unsigned char *pval, unsigned char *pixModel,
 }
 
 static BOOL _bs_closeEnough_8U_C3R(unsigned char *pval, unsigned char *pixModel, int len, int matchTh, int matchNum) {
-  int k, count, th;
-  unsigned char delta;
-  
+  int k, sampleLen, count, th;
+  unsigned char v0, v1, v2;
+  unsigned int delta;
+
+  v0 = pval[0];
+  v1 = pval[1];
+  v2 = pval[2];
+
+  sampleLen = len * 3;
   th = matchTh * 3;
   count = 0;
-  for (k = 0; k < len; ++k) {
-    delta = ABS(*pval - pixModel[k]);
-    delta += ABS(*(pval+1) - pixModel[k+1]);
-    delta += ABS(*(pval+2) - pixModel[k+2]);
+  for (k = 0; k < sampleLen; k += 3) {
+    delta  = ABS(v0 - pixModel[k]);
+    delta += ABS(v1 - pixModel[k+1]);
+    delta += ABS(v2 - pixModel[k+2]);
     if (delta < th) {
       if (++count >= matchNum)
         return TRUE;
@@ -410,9 +430,11 @@ static BOOL _bs_closeEnough_8U_C3R(unsigned char *pval, unsigned char *pixModel,
 static int _bs_updatePixelModel_8u_C1R(bs_t p, unsigned char *pval, int w, int h, int x, int y)
 {
   int nx, ny;
+  unsigned int idx;
   /* update pixel model */
-  unsigned int memberToReplace = _bs_getNextRandomNumber(p) % p->sampeNum;
-  p->bgModel[x + y * width + memberToReplace] = *pval;
+  unsigned int memberToReplace = _bs_getNextRandomNumber(p) % p->sampleNum;
+  idx = (x + y * w) * p->sampleNum + memberToReplace;
+  p->bgModel[idx] = *pval;
 
   /* update corresponding pixel model */
   /* 5    6   7
@@ -477,7 +499,8 @@ static int _bs_updatePixelModel_8u_C1R(bs_t p, unsigned char *pval, int w, int h
       break;
   }
   
-  p->bgModel[nx + ny * width + memberToReplace] = *pval;
+  idx = (nx + ny * w) * p->sampleNum + memberToReplace;
+  p->bgModel[idx] = *pval;
   
   return 0;
 }
@@ -487,8 +510,9 @@ static int _bs_updatePixelModel_8u_C3R(bs_t p, unsigned char *pval, int w, int h
 {
   int nx, ny, t;
   /* update pixel model */
-  unsigned int memberToReplace = _bs_getNextRandomNumber(p) % p->sampeNum;
-  t = 3*(x + y * width + memberToReplace);
+  unsigned int memberToReplace = _bs_getNextRandomNumber(p) % p->sampleNum;
+
+  t = 3 * p->sampleNum * (x + y * w) + 3 * memberToReplace;
   p->bgModel[t + 0] = pval[0];
   p->bgModel[t + 1] = pval[1];
   p->bgModel[t + 2] = pval[2];
@@ -555,7 +579,7 @@ static int _bs_updatePixelModel_8u_C3R(bs_t p, unsigned char *pval, int w, int h
         ny++;
       break;
   }
-  t = 3*(nx + ny * width + memberToReplace);
+  t = 3 * p->sampleNum * (nx + ny * w) + 3 * memberToReplace;;
   p->bgModel[t + 0] = pval[0];
   p->bgModel[t + 1] = pval[1];
   p->bgModel[t + 2] = pval[2];
@@ -565,8 +589,8 @@ static int _bs_updatePixelModel_8u_C3R(bs_t p, unsigned char *pval, int w, int h
 
 /* perform background sbstraction and update model */
 int bs_update(const bs_t *t, unsigned char *frame, unsigned char *segmap) {
-  int w, h, i, j, step, matchTh, matchNum;
-  unsigned int isUpdateModel, updateFactor;
+  int w, h, x, y, step, matchTh, matchNum;
+  int isUpdateModel, updateFactor;
   unsigned char bgColor, foreColor;
   unsigned char *sm, *pFrame, *pModel;
   bs_t p = *t;
@@ -580,20 +604,22 @@ int bs_update(const bs_t *t, unsigned char *frame, unsigned char *segmap) {
   pModel = p->bgModel;
   step = p->sampleNum;
   matchTh = p->matchThresh;
-  matchNum = p->matchNumber;
+  matchNum = p->matchNum;
   bgColor = p->backgroundColor;
   foreColor = p->foregroundColor;
   updateFactor = p->updateFactor;
-  
+  w = p->imageWidth;
+  h = p->imageHeight;
+
   switch(p->imageChannelNum) {
     case 1: {
-      for (i = 0; i < h; ++i) {
-        for (j = 0; j < w; ++j) {
+      for (y = 0; y < h; ++y) {
+        for (x = 0; x < w; ++x) {
           if (_bs_closeEnough_8U_C1R(pFrame, pModel, step, matchTh, matchNum)) {
             *sm = bgColor;
-            isUpdateModel = (_bs_getNextRandomNumber(p) % updateFactor);
+            isUpdateModel = ((_bs_getNextRandomNumber(p) % (updateFactor)) == (updateFactor - 1));
             if (isUpdateModel) {
-              _bs_updatePixelModel_8U_C1R(p, *pFrame, w, h, j,i);
+              _bs_updatePixelModel_8u_C1R(p, pFrame, w, h, x, y);
             }
           } else {
             *sm = foreColor;
@@ -605,25 +631,29 @@ int bs_update(const bs_t *t, unsigned char *frame, unsigned char *segmap) {
       }
     }
       break;
+
     case 3:{
-      for (i = 0; i < h; ++i) {
-        for (j = 0; j < w; ++j) {
+      for (y = 0; y < h; ++y) {
+        for (x = 0; x < w; ++x) {
+          *sm = foreColor;
+
           if (_bs_closeEnough_8U_C3R(pFrame, pModel, step, matchTh, matchNum)) {
             *sm = bgColor;
-            isUpdateModel = (_bs_getNextRandomNumber(p) % updateFactor);
+
+            isUpdateModel = ((_bs_getNextRandomNumber(p) % (updateFactor)) == (updateFactor - 1));
             if (isUpdateModel) {
-              _bs_updatePixelModel_8U_C3R(p, *pFrame, w, h, j,i);
+              _bs_updatePixelModel_8u_C3R(p, pFrame, w, h, x, y);
             }
-          } else {
-            *sm = foreColor;
           }
-          pModel += step;
+
+          pModel += 3*step;
           pFrame += 3;
-          ++ sm;
+          sm++;
         }
       }
     }      
       break;
+
     default:
       /* it shouldn't be here */
       ;
@@ -637,85 +667,86 @@ int bs_update(const bs_t *t, unsigned char *frame, unsigned char *segmap) {
 /* destroy */
 int bs_destroy(bs_t *t) {
   if (!t || !(*t)) return 0;
-  free (p->randTable);
-  free (p->bgModel);
-  free (p->segMap);
+  free ((*t)->randTable);
+  free ((*t)->bgModel);
+  free ((*t)->segMap);
   free(*t);
   *t = NULL;
+  return 0;
 }
 
 /********geters && setter***********/
 
-int bs_getSampleNum(const bst_t p) {
+int bs_getSampleNum(const bs_t p) {
   return p->sampleNum;
 }
 
-int bs_getMatchNum(const bst_t p) {
-  p->matchNumber;
+int bs_getMatchNum(const bs_t p) {
+  return p->matchNum;
 }
 
-int bs_getMatchThreshold(const bst_t p) {
+int bs_getMatchThreshold(const bs_t p) {
   return p->matchThresh;
 }
 
-int bs_getUpdateFactor(const bst_t p) {
+int bs_getUpdateFactor(const bs_t p) {
   return p->updateFactor;
 }
 
-int bs_getColorMode(const bst_t p) {
+int bs_getColorMode(const bs_t p) {
   return p->colorMode;
 }
 
-unsigned int bs_getRandTableLen(const bst_t p) {
+unsigned int bs_getRandTableLen(const bs_t p) {
   return p->randTableLen;
 }
 
 /* be careful with this */
-unsigned char* bs_getModelPtr(const bst_t p) {
+unsigned char* bs_getModelPtr(const bs_t p) {
   return p->bgModel;
 }
 
-unsigned char* bs_getSegMapPtr(const bst_t p) {
+unsigned char* bs_getSegMapPtr(const bs_t p) {
   return p->segMap;
 }
 
-unsigned char bs_getBackgroundColor(const bst_t p) {
+unsigned char bs_getBackgroundColor(const bs_t p) {
   return p->backgroundColor;
 }
 
-unsigned char bs_getForegroundColor(const bst_t p) {
+unsigned char bs_getForegroundColor(const bs_t p) {
   return p->foregroundColor;
 }
 
-int bs_getImageChannelNum(const bst_t p) {
+int bs_getImageChannelNum(const bs_t p) {
   return p->imageChannelNum;
 }
 
-void bs_setForegroundColor(bst_t p, unsigned char c) {
+void bs_setForegroundColor(bs_t p, unsigned char c) {
   p->foregroundColor = c;
 }
 
-void bs_setBackgroundColor(bst_t p, unsigned char c) {
+void bs_setBackgroundColor(bs_t p, unsigned char c) {
   p->backgroundColor = c;
 }
 
-void bs_setSampleNum(bst_t p, int n) {
+void bs_setSampleNum(bs_t p, int n) {
   p->sampleNum = n;
 }
 
-void bs_setMatchNum(bst_t p, int n) {
+void bs_setMatchNum(bs_t p, int n) {
   p->matchNum = n;
 }
 
-void bs_setMatchThreshold(bst_t p, int th) {
-  p->matchThreshold = th;
+void bs_setMatchThreshold(bs_t p, int th) {
+  p->matchThresh = th;
 }
 
-void bs_setUpdateFactor(bst_t p, int f) {
+void bs_setUpdateFactor(bs_t p, int f) {
   p->updateFactor = f;
 }
 
-void bs_setRandTableLen(bst_t p, int len) {
+void bs_setRandTableLen(bs_t p, unsigned int len) {
   p->randTableLen = len;
 }
 
@@ -723,12 +754,12 @@ void bs_setRandTableLen(bst_t p, int len) {
  * the whole thing was created in C, you can't
  * avoid it, 'C trust programmers'.
  */
-void bs_setModelPtr(bst_t p, unsigned char *newModel) {
+void bs_setModelPtr(bs_t p, unsigned char *newModel) {
   free (p->bgModel);
   p->bgModel = newModel;
 }
 
-void bs_setSegMapPtr(bst_t p, unsigned char *newSegMap) {
+void bs_setSegMapPtr(bs_t p, unsigned char *newSegMap) {
   free(p->segMap);
   p->segMap = newSegMap;
 }
