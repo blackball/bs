@@ -37,21 +37,21 @@
 #define BGOOTH_COLOR_BACKGROUND 0x00
 #define BGOOTH_COLOR_FOREGROUND 0xFF
 
-#define _bgooth_unrollLoop(idx, count, _innerLoop)     \
-idx = (((count) - 1) & 7) - 7;                \
-switch (-idx) {                               \
-      do {                                        \
-        case 0: _innerLoop(idx + 0);              \
-        case 1: _innerLoop(idx + 1);              \
-        case 2: _innerLoop(idx + 2);              \
-        case 3: _innerLoop(idx + 3);              \
-        case 4: _innerLoop(idx + 4);              \
-        case 5: _innerLoop(idx + 5);              \
-        case 6: _innerLoop(idx + 6);              \
-        case 7: _innerLoop(idx + 7);              \
-                                                      idx += 8;                               \
-                                                                                                  }while(idx < count);                        \
-                                                                                                                                                  }
+#define _bgooth_unrollLoop(idx, count, _innerLoop)      \
+  idx = (((count) - 1) & 7) - 7;                        \
+  switch (-idx) {                                       \
+    do {                                                \
+      case 0: _innerLoop(idx + 0);                      \
+      case 1: _innerLoop(idx + 1);                      \
+      case 2: _innerLoop(idx + 2);                      \
+      case 3: _innerLoop(idx + 3);                      \
+      case 4: _innerLoop(idx + 4);                      \
+      case 5: _innerLoop(idx + 5);                      \
+      case 6: _innerLoop(idx + 6);                      \
+      case 7: _innerLoop(idx + 7);                      \
+        idx += 8;                                       \
+    }while(idx < count);                                \
+  }
 
 
 class BGooth {
@@ -114,29 +114,30 @@ BGooth(
                            int height) {
 			
 
-#define __lazy(type, nChannels)                                         \
-    this->m_nChannels = nChannels;                                      \
-    /* 1. init random table */                                          \
-    this->initRandTable(0xFFFF);                                        \
-    /* init bg model */                                                 \
-    assert( imageData );                                                \
-    assert(width > 0 && height > 0);                                    \
-    this->m_width = width;                                              \
-    this->m_height = height;                                            \
-    int pstep = this->m_numSamples;                                     \
-    this->m_bgmodel =                                                   \
-        (unsigned char*)calloc(width*height*pstep*nChannels, sizeof(unsigned char)); \
-    assert( this->m_bgmodel );                                          \
-    unsigned char *ptr = this->m_bgmodel;                               \
-    for (int h = 0; h < height; ++h) {                                  \
-      for (int w = 0; w < width; ++w) {                                 \
-        this->getRandomNeighborPixels_##type(imageData,                 \
-                                             width,                     \
-                                             height,                    \
-                                             w,h,                       \
-                                             ptr, pstep);               \
-        ptr += pstep*nChannels;                                         \
-      }                                                                 \
+#define __lazy(type, nChannels)                                 \
+    this->m_nChannels = nChannels;                              \
+    /* 1. init random table */                                  \
+    this->initRandTable(0xFFFF);                                \
+    /* init bg model */                                         \
+    assert( imageData );                                        \
+    assert(width > 0 && height > 0);                            \
+    this->m_width = width;                                      \
+    this->m_height = height;                                    \
+    int pstep = this->m_numSamples;                             \
+    this->m_bgmodel =                                           \
+        (unsigned char*)calloc(width*height*pstep*nChannels,    \
+                               sizeof(unsigned char));          \
+    assert( this->m_bgmodel );                                  \
+    unsigned char *ptr = this->m_bgmodel;                       \
+    for (int h = 0; h < height; ++h) {                          \
+      for (int w = 0; w < width; ++w) {                         \
+        this->getRandomNeighborPixels_##type(imageData,         \
+                                             width,             \
+                                             height,            \
+                                             w,h,               \
+                                             ptr, pstep);       \
+        ptr += pstep*nChannels;                                 \
+      }                                                         \
     }                                                           
     
     __lazy( C1R, 1 );
@@ -590,10 +591,12 @@ private:
 	return 1;                               \
     }
 
+    /* optimization using Duff's device */
     int delta = 0, i = 0;
     _bgooth_unrollLoop(i, nSamples, _bgooth_loop);
 #undef _bgooth_loop
-
+    
+    /* The original code is below */
     /*
       for (int i = 0; i < nSamples; ++i) {
       delta  = _abs(val0 - modelPtr[i]);
