@@ -4,7 +4,7 @@
  * @date   Wed Feb 29 23:32:19 2012
  * 
  * @brief  C++ version of VIBE.
- * @note A pixel-patch ( 2x2, 3x3, ... ) approach
+ * @note A pixel-patch ( 2x2, 3x3, ... ) filter approach
  * will be presented in next version.
  */
 
@@ -37,15 +37,32 @@
 #define BGOOTH_COLOR_BACKGROUND 0x00
 #define BGOOTH_COLOR_FOREGROUND 0xFF
 
+#define _bgooth_unrollLoop(idx, count, _innerLoop)     \
+idx = (((count) - 1) & 7) - 7;                \
+switch (-idx) {                               \
+      do {                                        \
+        case 0: _innerLoop(idx + 0);              \
+        case 1: _innerLoop(idx + 1);              \
+        case 2: _innerLoop(idx + 2);              \
+        case 3: _innerLoop(idx + 3);              \
+        case 4: _innerLoop(idx + 4);              \
+        case 5: _innerLoop(idx + 5);              \
+        case 6: _innerLoop(idx + 6);              \
+        case 7: _innerLoop(idx + 7);              \
+                                                      idx += 8;                               \
+                                                                                                  }while(idx < count);                        \
+                                                                                                                                                  }
+
+
 class BGooth {
- public:
-  BGooth(
-      int nSamples = 20, /* number of random samples for every pixel */
-      int matchingTh = 20, /* value threshold for matching two pixel values */
-      int matchingNum = 2, /* threshold for judge if a pixel is foreground */
-      int updateFactor = 16 /* @TODO I don't make this clear too */
-         ):
-      m_nChannels(1), /* gray-scale is the default format */
+public:
+BGooth(
+    int nSamples = 20, /* number of random samples for every pixel */
+    int matchingTh = 20, /* value threshold for matching two pixel values */
+    int matchingNum = 2, /* threshold for judge if a pixel is foreground */
+    int updateFactor = 16 /* @TODO I don't make this clear too */
+       ):
+  m_nChannels(1), /* gray-scale is the default format */
       m_numSamples(nSamples),
       m_matchingThreshold(matchingTh),
       m_matchingNumber(matchingNum),
@@ -91,9 +108,11 @@ class BGooth {
   
   // also, you could call methods directly
   
+
   inline int ModelInit_C1R(const unsigned char *imageData,
                            int width,
                            int height) {
+			
 
 #define __lazy(type, nChannels)                                         \
     this->m_nChannels = nChannels;                                      \
@@ -109,7 +128,6 @@ class BGooth {
         (unsigned char*)calloc(width*height*pstep*nChannels, sizeof(unsigned char)); \
     assert( this->m_bgmodel );                                          \
     unsigned char *ptr = this->m_bgmodel;                               \
-    /* fill pixel model with neighbours */                              \
     for (int h = 0; h < height; ++h) {                                  \
       for (int w = 0; w < width; ++w) {                                 \
         this->getRandomNeighborPixels_##type(imageData,                 \
@@ -119,7 +137,7 @@ class BGooth {
                                              ptr, pstep);               \
         ptr += pstep*nChannels;                                         \
       }                                                                 \
-    }                                                               
+    }                                                           
     
     __lazy( C1R, 1 );
         
@@ -189,10 +207,10 @@ class BGooth {
     m_randTable = NULL;
   }
 
- private:
+private:
   inline void initRandTable(unsigned int len){
     /* RAND_TAB_LEN + 1 maybe dangerous */
-    m_randTable = (int*)malloc((len + 1) * sizeof(int));
+    m_randTable = (unsigned int*)malloc((len + 1) * sizeof(unsigned int));
 
     assert(m_randTable);
 
@@ -207,8 +225,8 @@ class BGooth {
   }
   
   /* circular rand */
-  inline int crand() {
-    int t = *m_currTabPos;
+  inline unsigned int crand() {
+    unsigned int t = *m_currTabPos;
     if (m_currTabPos != m_lastTabPos) {
       ++m_currTabPos;
       return t;
@@ -223,6 +241,7 @@ class BGooth {
                                           int w, int h,
                                           unsigned char *ptr,
                                           int pstep) {
+
     const unsigned char *imgPtr = imageData + h * width + w;
     
     /* fill the pixel model */
@@ -347,7 +366,9 @@ class BGooth {
 #undef _at
 
     unsigned char *bgPtr = ptr;
-    for (int i = pstep; i; --i) {
+    *bgPtr++ = *imgPtr;
+
+    for (int i = pstep - 1; i; --i) {
       *bgPtr++ = neighbors[ this->crand() & 7 ]; // N % 8 == N & ( 8-1 ) 
     }
 
@@ -502,7 +523,10 @@ class BGooth {
 
     unsigned char *bgPtr = ptr;
     unsigned idx;
-    for (int i = pstep; i; --i) {
+    *bgPtr ++ = imgPtr[0];
+    *bgPtr ++ = imgPtr[1];
+    *bgPtr ++ = imgPtr[2];
+    for (int i = pstep - 1; i; --i) {
       idx = this->crand() & 7; // N % 8 == N & ( 8-1 ) 
       bgPtr[0] = neighbors[ idx ][0];
       bgPtr[1] = neighbors[ idx ][1];
@@ -556,17 +580,31 @@ class BGooth {
     unsigned char *modelPtr = pixelModel;
         
 #define _abs(v) ((v) < 0 ? -(v) : (v))
-        
-    int delta = 0;
-    for (int i = 0; i < nSamples; ++i) {
+
+#define _bgooth_loop(idx)                       \
+    delta  = _abs(val0 - modelPtr[idx]);        \
+    delta += _abs(val1 - modelPtr[idx+1]);      \
+    delta += _abs(val2 - modelPtr[idx+2]);      \
+    if ( delta < 3 * matchingTh ) {             \
+      if ( ++count  >= matchingNum )            \
+	return 1;                               \
+    }
+
+    int delta = 0, i = 0;
+    _bgooth_unrollLoop(i, nSamples, _bgooth_loop);
+#undef _bgooth_loop
+
+    /*
+      for (int i = 0; i < nSamples; ++i) {
       delta  = _abs(val0 - modelPtr[i]);
       delta += _abs(val1 - modelPtr[i+1]);
       delta += _abs(val2 - modelPtr[i+2]);
       if ( delta < 3 * matchingTh ) {
-        if ( ++count  >= matchingNum )
-          return 1;
+      if ( ++count  >= matchingNum )
+      return 1;
       }
-    }
+      }
+    */
     
 #undef _abs
     return 0;
@@ -629,7 +667,7 @@ class BGooth {
     if (ny + y == -1) ny = 0;
     else if (ny + y == imgH) --ny;
     
-    modelPtr[nx + nSamples * imgW * ny + randReplace] = *pixelPtr;
+    modelPtr[(nx + imgW * ny) * nSamples + randReplace] = *pixelPtr;
 
     return ;
   }
@@ -646,6 +684,7 @@ class BGooth {
         v2 = pixelPtr[2];
 
     int randReplace = this->crand() % nSamples;
+
     modelPtr[randReplace] = v0;
     modelPtr[randReplace + 1] = v1;
     modelPtr[randReplace + 2] = v2;
@@ -695,15 +734,16 @@ class BGooth {
     if (ny + y == -1) ny = 0;
     else if (ny + y == imgH) --ny;
     
-    modelPtr[3*(nx + nSamples * imgW * ny + randReplace)] = v0;
-    modelPtr[3*(nx + nSamples * imgW * ny + randReplace) + 1] = v1;
-    modelPtr[3*(nx + nSamples * imgW * ny + randReplace) + 2] = v2;
+    unsigned int pos = 3*(nSamples * (nx + imgW * ny) + randReplace);
+    modelPtr[pos] = v0;
+    modelPtr[pos + 1] = v1;
+    modelPtr[pos + 2] = v2;
 
     return ;
   }
 
   
- private:
+private:
   int m_nChannels;
   int m_numSamples;
   int m_matchingThreshold;
@@ -715,9 +755,11 @@ class BGooth {
   unsigned char *m_bgmodel;
 
   /* circle random table */
-  int *m_currTabPos;
-  int *m_lastTabPos;
-  int *m_randTable;
+  unsigned int *m_currTabPos;
+  unsigned int *m_lastTabPos;
+  unsigned int *m_randTable;
 };
+
+#undef _bgooth_unrollLoop
 
 #endif
