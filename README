@@ -14,3 +14,16 @@ Update:
 @TODO: 
   -clean-up
   -optimization
+
+Update 2012-10-08:
+
+The API is not as simple as it should be, and there still
+a lot of optimization spaces left.
+
+I will refactor the codes, and I think if I model the
+foreground pixels in the time-domain, it will be more
+useful.So After refactoring this codes, I plan to release
+a more powerful version both for background substraction and
+foreground filtering.
+
+blackball.
