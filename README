@@ -1,29 +1,15 @@
-Bgooth
-======
-Pixel-wise background subtraction method.
+bs
+==
+pixel-wise background subtraction
 
-blackball
 
-A more well designed API will be in version 2
-=====
-I name it as bs (background substraction).
+update:
 
-Update:
-@date 3/15/2012
-  -add new C version in bs.h and bs.c, testing example in bs_example.cpp
-@TODO: 
-  -clean-up
-  -optimization
+@date 2012-10-08: simplified the interfaces 
+@note: I plan to refactor the codes in the future. maybe I could model the 
+foreground pixels in the time-domain too, which will be much useful (we could 
+modeling the background and in the same time modeling the foreground?). stay tuned.
 
-Update 2012-10-08:
+@date 2012-03-15: added new C version in bs.h and bs.c, testing example in bs_example.cpp
 
-The API is not as simple as it should be, and there still
-a lot of optimization spaces left.
 
-I will refactor the codes, and I think if I model the
-foreground pixels in the time-domain, it will be more
-useful.So After refactoring this codes, I plan to release
-a more powerful version both for background substraction and
-foreground filtering.
-
-blackball.
